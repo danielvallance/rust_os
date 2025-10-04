@@ -1,0 +1,4 @@
+# Building for a target which does not have an operating system,
+# so the linker does not try and link against the C runtime
+[build]
+target = "thumbv7m-none-eabi"
