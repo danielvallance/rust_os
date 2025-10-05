@@ -4,11 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-
-# This freestanding executable does not have access to the OS level
-# unwinding functionality, so this program will abort on panic instead.
-[profile.dev]
-panic = "abort"
-
-[profile.release]
-panic = "abort"
+bootloader = "0.9"

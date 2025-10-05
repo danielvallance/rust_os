@@ -9,6 +9,9 @@
 
 use core::panic::PanicInfo;
 
+static HELLO_WORLD: &[u8] = b"Hello world!";
+const VGA_BUF_ADDR: *mut u8 = 0xb8000 as *mut u8;
+
 /// This is a custom panic handler, as we do not have access to the default
 /// one in the standard library. This panic handler just loops forever.
 #[panic_handler]
@@ -25,5 +28,13 @@ fn panic(_info: &PanicInfo) -> ! {
 /// be invoked by the Rust runtime.
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
+    // Write ASCII byte and colour byte into VGA buffer
+    for (i, &byte) in HELLO_WORLD.iter().enumerate() {
+        unsafe {
+            *VGA_BUF_ADDR.offset(i as isize * 2) = byte;
+            *VGA_BUF_ADDR.offset(i as isize * 2 + 1) = 0xb;
+        }
+    }
+
     loop {}
 }
