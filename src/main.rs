@@ -6,16 +6,31 @@
 // #![no_std] tells rustc that we do not want to link this executable against the
 // standard library (as it relies on an underlying OS).
 #![no_std]
-
-mod vga;
+// The default test framework is not available as it relies on the standard
+// library. Therefore the custom_test_frameworks feature is used to run
+// tests with a custom test framework. The tests will be passed to the specified
+// test runner (rust_os::test_runner) for execution.
+#![feature(custom_test_frameworks)]
+#![test_runner(rust_os::test_runner)]
+// Configure entry point for test run to be called test_main
+#![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
+use rust_os::println;
 
 /// This is a custom panic handler, as we do not have access to the default
 /// one in the standard library. This panic handler just loops forever.
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     loop {}
+}
+
+// Panic handler in test mode which is a wrapper around rust_os::test_panic_handler
+#[cfg(test)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    rust_os::test_panic_handler(info);
 }
 
 /// The '#[unsafe(no_mangle)]' attribute directs rustc to not mangle the name,
@@ -29,6 +44,10 @@ fn panic(_info: &PanicInfo) -> ! {
 pub extern "C" fn _start() -> ! {
     // Invokes the vga module's println! macro to write "Hello world!" to the VGA text buffer
     println!("Hello world!");
+
+    // Run tests
+    #[cfg(test)]
+    test_main();
 
     loop {}
 }

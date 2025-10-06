@@ -3,11 +3,33 @@ name = "rust_os"
 version = "0.1.0"
 edition = "2024"
 
+# Default benchmark system depends on the standard library, so disabling it for this executable
+[[bin]]
+name = "rust_os"
+bench = false
+
 [dependencies]
 bootloader = "0.9"
 spin = "0.5.2"
+uart_16550 = "0.2.0"
 volatile = "0.2.6"
+x86_64 = "0.14.2"
 
 [dependencies.lazy_static]
 version = "1.0"
 features = ["spin_no_std"]
+
+# In test mode, specify port address/size of isa-debug-exit device which allows kernel
+# to exit QEMU and end the test. Additionally print serial port data to stdio, and
+# do not display QEMU terminal in test mode.
+[package.metadata.bootimage]
+test-args = [
+    "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio", "-display", "none"
+]
+test-success-exit-code = 33 
+
+# The "should_panic" integration test has a single test case which can be called directly
+# from its executable's entry point, so a test harness is not necessary.
+[[test]]
+name = "should_panic"
+harness = false

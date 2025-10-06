@@ -1,0 +1,101 @@
+//! This library contains the infrastructure for running unit tests and integration tests
+
+#![no_std]
+// The entry point defined in main.rs is not compiled with this library in test
+// mode. Therefore library conditionally defines its own entry point when run in test mode
+#![cfg_attr(test, no_main)]
+#![feature(custom_test_frameworks)]
+#![test_runner(crate::test_runner)]
+#![reexport_test_harness_main = "test_main"]
+
+pub mod serial;
+pub mod vga;
+
+use core::panic::PanicInfo;
+
+// Port address of isa-debug-exit as defined in Cargo.toml
+const ISA_DEBUG_EXIT_PORT: u16 = 0xf4;
+
+/// Trait for functions which can be passed to our test runner
+pub trait Testable {
+    fn run(&self) -> ();
+}
+
+// Testable is implemented for all "Fn()" and it simply
+// runs the function, while printing the test name and
+// "[ok]" on success to the serial port.
+impl<T> Testable for T
+where
+    T: Fn(),
+{
+    fn run(&self) {
+        serial_print!("{}...\t", core::any::type_name::<T>());
+        self();
+        serial_println!("[ok]");
+    }
+}
+
+/// Custom test runner. This does not depend on the standard library.
+pub fn test_runner(tests: &[&dyn Testable]) {
+    serial_println!("Running {} tests", tests.len());
+    for test in tests {
+        test.run();
+    }
+
+    // Exit QEMU with the success code defined in Cargo.toml
+    exit_qemu(QemuExitCode::Success);
+}
+
+/// Prints failure information to the serial port, and exits QEMU with a failure
+pub fn test_panic_handler(info: &PanicInfo) -> ! {
+    serial_println!("[failed]\n");
+    serial_println!("Error: {}\n", info);
+
+    // Exit QEMU with a failure code
+    exit_qemu(QemuExitCode::Failed);
+    loop {}
+}
+
+/// Entry point for 'cargo test'. This is necessary as the entry point defined in
+/// main.rs cannot be used by this library in test mode.
+#[cfg(test)]
+#[unsafe(no_mangle)]
+pub extern "C" fn _start() -> ! {
+    test_main();
+    loop {}
+}
+
+/// Panic handler for this library in test mode. The one defined in main.rs
+/// cannot be used by this library in test mode.
+#[cfg(test)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    test_panic_handler(info)
+}
+
+/// 4 byte exit code which isa-debug-exit expects when it is used
+/// to exit QEMU. isa-debug-exit is configured to expect 4 bytes
+/// in Cargo.toml so #[repr(32)] is used to guarantee this is 4 bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
+pub enum QemuExitCode {
+    // QEMU will exit with (val << 1) | 1 where val is what is
+    // written to isa-debug-exit. Therefore we must define
+    // 33 ((0x10 << 1) | 1) as a success code in the Cargo.toml
+    // as normally any non-zero value is interpreted as failure.
+    //
+    // We use values not well-known by QEMU to distinguish test exits
+    // from normal exits
+    Success = 0x10,
+    Failed = 0x11,
+}
+
+/// Open a port to isa-debug-exit and write the 4 byte exit code to it to exit QEMU
+pub fn exit_qemu(exit_code: QemuExitCode) {
+    use x86_64::instructions::port::Port;
+
+    unsafe {
+        let mut port = Port::new(ISA_DEBUG_EXIT_PORT);
+        port.write(exit_code as u32);
+    }
+}
