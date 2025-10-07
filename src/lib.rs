@@ -7,7 +7,11 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+// Instructing the compiler to use the x86-interrupt calling convention is
+// an unstable feature, so enable it here
+#![feature(abi_x86_interrupt)]
 
+pub mod interrupts;
 pub mod serial;
 pub mod vga;
 
@@ -15,6 +19,11 @@ use core::panic::PanicInfo;
 
 // Port address of isa-debug-exit as defined in Cargo.toml
 const ISA_DEBUG_EXIT_PORT: u16 = 0xf4;
+
+/// General kernel initialisation function
+pub fn init() {
+    interrupts::init_idt();
+}
 
 /// Trait for functions which can be passed to our test runner
 pub trait Testable {
@@ -61,6 +70,8 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
 #[cfg(test)]
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
+    // Initialise kernel
+    init();
     test_main();
     loop {}
 }
@@ -98,4 +109,12 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
         let mut port = Port::new(ISA_DEBUG_EXIT_PORT);
         port.write(exit_code as u32);
     }
+}
+
+/// Tests the breakpoint exception handler by invoking a breakpoint
+/// instruction (int3) and checking that the kernel continues.
+#[test_case]
+fn test_breakpoint_exception() {
+    // invoke a breakpoint exception
+    x86_64::instructions::interrupts::int3();
 }

@@ -45,9 +45,17 @@ pub extern "C" fn _start() -> ! {
     // Invokes the vga module's println! macro to write "Hello world!" to the VGA text buffer
     println!("Hello world!");
 
+    // Initialise and load IDT with breakpoint exception handler
+    rust_os::init();
+
+    // Invoke breakpoint instruction (int3)
+    x86_64::instructions::interrupts::int3();
+
     // Run tests
     #[cfg(test)]
     test_main();
+
+    println!("Breakpoint exception handled successfully!");
 
     loop {}
 }
