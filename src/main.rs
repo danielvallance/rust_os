@@ -48,14 +48,17 @@ pub extern "C" fn _start() -> ! {
     // Initialise and load IDT with breakpoint exception handler
     rust_os::init();
 
-    // Invoke breakpoint instruction (int3)
-    x86_64::instructions::interrupts::int3();
+    // Trigger page fault by writing to unmapped address. The IDT
+    // does not have handlers for page faults, double faults or triple
+    // faults, therefore this page fault will cause a double fault, then
+    // a triple fault which causes a system reset on most hardware and QEMU.
+    unsafe {
+        *(0xdeadbeef as *mut u8) = 42;
+    }
 
     // Run tests
     #[cfg(test)]
     test_main();
-
-    println!("Breakpoint exception handled successfully!");
 
     loop {}
 }
