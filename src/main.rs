@@ -49,13 +49,15 @@ pub extern "C" fn _start() -> ! {
     // Initialise and load IDT with breakpoint exception handler
     rust_os::init();
 
-    // Trigger page fault by writing to unmapped address. The IDT
-    // does not have handlers for page faults, double faults or triple
-    // faults, therefore this page fault will cause a double fault, then
-    // a triple fault which causes a system reset on most hardware and QEMU.
-    unsafe {
-        *(0xdeadbeef as *mut u8) = 42;
+    /// Recursive function designed to trigger stack overflow.
+    fn stack_overflow() {
+        stack_overflow();
     }
+
+    // Trigger triple fault by causing stack overflow, at which point
+    // handlers are not able to run as they cannot push the interrupt
+    // stack frame onto the stack.
+    stack_overflow();
 
     // Run tests
     #[cfg(test)]
