@@ -49,16 +49,6 @@ pub extern "C" fn _start() -> ! {
     // Initialise and load IDT with breakpoint exception handler
     rust_os::init();
 
-    /// Recursive function designed to trigger stack overflow.
-    fn stack_overflow() {
-        stack_overflow();
-    }
-
-    // Trigger triple fault by causing stack overflow, at which point
-    // handlers are not able to run as they cannot push the interrupt
-    // stack frame onto the stack.
-    stack_overflow();
-
     // Run tests
     #[cfg(test)]
     test_main();

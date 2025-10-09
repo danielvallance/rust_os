@@ -11,6 +11,7 @@
 // an unstable feature, so enable it here
 #![feature(abi_x86_interrupt)]
 
+pub mod gdt;
 pub mod interrupts;
 pub mod serial;
 pub mod vga;
@@ -22,6 +23,7 @@ const ISA_DEBUG_EXIT_PORT: u16 = 0xf4;
 
 /// General kernel initialisation function
 pub fn init() {
+    gdt::init();
     interrupts::init_idt();
 }
 
