@@ -22,7 +22,8 @@ use rust_os::println;
 /// one in the standard library. This panic handler just loops forever.
 #[cfg(not(test))]
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    println!("{info}");
     loop {}
 }
 
