@@ -224,10 +224,20 @@ fn test_println_many() {
 /// Tests that a line which is less than BUFFER_WIDTH characters long fits on a single line
 #[test_case]
 fn test_println_output() {
+    use core::fmt::Write;
+    use x86_64::instructions::interrupts;
+
     let s = "Some test string that fits on a single line";
-    println!("{}", s);
-    for (i, c) in s.chars().enumerate() {
-        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(screen_char.ascii_character), c);
-    }
+
+    // Disable interrupts to avoid deadlock on the writer lock
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+
+        // Start by writing newline to ensure that no timer interrupt dots are already on the line
+        writeln!(writer, "\n{}", s).expect("Failed to write line to VGA buffer\n");
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_character), c);
+        }
+    });
 }
