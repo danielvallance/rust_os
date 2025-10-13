@@ -198,7 +198,13 @@ macro_rules! println {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+    use x86_64::instructions::interrupts;
+
+    // Disable interrupts to avoid the interrupt handler, and _print
+    // function deadlocking on the writer lock
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    });
 }
 
 /// Tests the printing of a single line does not panic
