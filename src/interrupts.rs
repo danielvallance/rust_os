@@ -96,33 +96,39 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
     }
 }
 
-/// Keyboard interrupt handler which handles the user entering numbers by printing them to the VGA buffer
+/// Keyboard interrupt handler which handles the user entering keys by printing them to the VGA buffer
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    use pc_keyboard::{DecodedKey, HandleControl, Keyboard, ScancodeSet1, layouts};
+    use spin::Mutex;
     use x86_64::instructions::port::Port;
+
+    // Spinlock protected keyboard representation which is instantiated with
+    // scancode set 1, US layout, and its behaviour of handling 'ctrl' combinations
+    // like normal keys
+    lazy_static! {
+        static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
+            Mutex::new(Keyboard::new(
+                ScancodeSet1::new(),
+                layouts::Us104Key,
+                HandleControl::Ignore
+            ));
+    }
 
     // Read scancode which can be used to determine which key was pressed.
     // The PS2 keyboard controller will not send another interrupt until the scancode has been read.
+    let mut keyboard = KEYBOARD.lock();
     let mut port = Port::new(PS2_DATA_PORT_ADDR);
     let scancode: u8 = unsafe { port.read() };
 
-    // Determine which key was pressed. Only digits 0-9 are implemented right now.
-    let key = match scancode {
-        0x02 => Some('1'),
-        0x03 => Some('2'),
-        0x04 => Some('3'),
-        0x05 => Some('4'),
-        0x06 => Some('5'),
-        0x07 => Some('6'),
-        0x08 => Some('7'),
-        0x09 => Some('8'),
-        0x0a => Some('9'),
-        0x0b => Some('0'),
-        _ => None,
-    };
-
-    // Print the pressed key
-    if let Some(key) = key {
-        print!("{}", key);
+    // Convert scancode to an Option<KeyEvent> which represents the key in question, and if it was a key up or down event.
+    // Then convert the key into a character, and print it
+    if let Ok(Some(key_event)) = keyboard.add_byte(scancode)
+        && let Some(key) = keyboard.process_keyevent(key_event)
+    {
+        match key {
+            DecodedKey::Unicode(character) => print!("{}", character),
+            DecodedKey::RawKey(key) => print!("{:?}", key),
+        }
     }
 
     // Send EOI signal to notify PIC that the interrupt has been handled
