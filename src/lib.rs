@@ -25,6 +25,8 @@ const ISA_DEBUG_EXIT_PORT: u16 = 0xf4;
 pub fn init() {
     gdt::init();
     interrupts::init_idt();
+    unsafe { interrupts::PICS.lock().initialize() };
+    x86_64::instructions::interrupts::enable();
 }
 
 /// Trait for functions which can be passed to our test runner
