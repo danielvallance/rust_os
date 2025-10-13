@@ -66,7 +66,7 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
 
     // Exit QEMU with a failure code
     exit_qemu(QemuExitCode::Failed);
-    loop {}
+    hlt_loop()
 }
 
 /// Entry point for 'cargo test'. This is necessary as the entry point defined in
@@ -77,7 +77,7 @@ pub extern "C" fn _start() -> ! {
     // Initialise kernel
     init();
     test_main();
-    loop {}
+    hlt_loop()
 }
 
 /// Panic handler for this library in test mode. The one defined in main.rs
@@ -112,6 +112,14 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
     unsafe {
         let mut port = Port::new(ISA_DEBUG_EXIT_PORT);
         port.write(exit_code as u32);
+    }
+}
+
+/// Executes the hlt instruction in a loop to let the CPU
+/// sleep until it receives an interrupt.
+pub fn hlt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
     }
 }
 

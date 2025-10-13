@@ -24,7 +24,7 @@ use rust_os::println;
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{info}");
-    loop {}
+    rust_os::hlt_loop()
 }
 
 // Panic handler in test mode which is a wrapper around rust_os::test_panic_handler
@@ -53,5 +53,5 @@ pub extern "C" fn _start() -> ! {
     #[cfg(test)]
     test_main();
 
-    loop {}
+    rust_os::hlt_loop()
 }
