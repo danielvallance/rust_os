@@ -16,11 +16,15 @@ pub const PIC_1_OFFSET: u8 = 32;
 /// PIC2 will send interrupt vector indices 40-47
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
+/// Address of PS/2 controller's data port
+const PS2_DATA_PORT_ADDR: u16 = 0x60;
+
 /// Index to the IDT
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
+    Keyboard,
 }
 
 impl InterruptIndex {
@@ -51,6 +55,7 @@ lazy_static! {
         }
         idt[InterruptIndex::Timer.as_usize()]
             .set_handler_fn(timer_interrupt_handler);
+        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         idt
     };
 }
@@ -88,5 +93,41 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+    }
+}
+
+/// Keyboard interrupt handler which handles the user entering numbers by printing them to the VGA buffer
+extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    use x86_64::instructions::port::Port;
+
+    // Read scancode which can be used to determine which key was pressed.
+    // The PS2 keyboard controller will not send another interrupt until the scancode has been read.
+    let mut port = Port::new(PS2_DATA_PORT_ADDR);
+    let scancode: u8 = unsafe { port.read() };
+
+    // Determine which key was pressed. Only digits 0-9 are implemented right now.
+    let key = match scancode {
+        0x02 => Some('1'),
+        0x03 => Some('2'),
+        0x04 => Some('3'),
+        0x05 => Some('4'),
+        0x06 => Some('5'),
+        0x07 => Some('6'),
+        0x08 => Some('7'),
+        0x09 => Some('8'),
+        0x0a => Some('9'),
+        0x0b => Some('0'),
+        _ => None,
+    };
+
+    // Print the pressed key
+    if let Some(key) = key {
+        print!("{}", key);
+    }
+
+    // Send EOI signal to notify PIC that the interrupt has been handled
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
     }
 }
