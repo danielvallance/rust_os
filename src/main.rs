@@ -49,12 +49,14 @@ pub extern "C" fn _start() -> ! {
     // Initialise and load IDT with breakpoint exception handler
     rust_os::init();
 
-    // Cause page fault by writing to read only code page
-    let ptr = 0x204f54 as *mut u8;
+    use x86_64::registers::control::Cr3;
 
-    unsafe {
-        *ptr = 42;
-    }
+    // Print physical address of the active level 4 page table. This is stored in the CR3 register
+    let (level_4_page_table, _) = Cr3::read();
+    println!(
+        "Level 4 page table at: {:?}",
+        level_4_page_table.start_address()
+    );
 
     // Run tests
     #[cfg(test)]
