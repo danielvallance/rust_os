@@ -15,6 +15,7 @@
 // Configure entry point for test run to be called test_main
 #![reexport_test_harness_main = "test_main"]
 
+use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 use rust_os::println;
 
@@ -34,15 +35,12 @@ fn panic(info: &PanicInfo) -> ! {
     rust_os::test_panic_handler(info);
 }
 
-/// The '#[unsafe(no_mangle)]' attribute directs rustc to not mangle the name,
-/// as we need to pass the name of this entry point function to the linker.
-///
-/// We also specify that it uses the C calling convention as this
-/// executable will be called with the C calling convention, not the
-/// Rust one. This is because this freestanding executable will not
-/// be invoked by the Rust runtime.
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
+// Specifies kernel_main as the entry point for the freestanding executable
+entry_point!(kernel_main);
+
+/// Entry point for the freestanding kernel executable. It takes a BootInfo struct
+/// from the bootloader as an argument.
+fn kernel_main(_boot_info: &'static BootInfo) -> ! {
     // Invokes the vga module's println! macro to write "Hello world!" to the VGA text buffer
     println!("Hello world!");
 

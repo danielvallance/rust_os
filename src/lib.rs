@@ -18,6 +18,9 @@ pub mod vga;
 
 use core::panic::PanicInfo;
 
+#[cfg(test)]
+use bootloader::{BootInfo, entry_point};
+
 // Port address of isa-debug-exit as defined in Cargo.toml
 const ISA_DEBUG_EXIT_PORT: u16 = 0xf4;
 
@@ -69,11 +72,15 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     hlt_loop()
 }
 
-/// Entry point for 'cargo test'. This is necessary as the entry point defined in
-/// main.rs cannot be used by this library in test mode.
+// Specifies the entry point of the test executable
 #[cfg(test)]
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
+entry_point!(test_kernel_main);
+
+/// Entry point for 'cargo test'. This is necessary as the entry point defined in
+/// main.rs cannot be used by this library in test mode. It takes a BootInfo struct
+/// from the bootloader as an argument.
+#[cfg(test)]
+fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     // Initialise kernel
     init();
     test_main();
