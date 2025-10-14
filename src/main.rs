@@ -49,8 +49,8 @@ pub extern "C" fn _start() -> ! {
     // Initialise and load IDT with breakpoint exception handler
     rust_os::init();
 
-    // Cause page fault by writing to unmapped address
-    let ptr = 0x12345678 as *mut u8;
+    // Cause page fault by writing to read only code page
+    let ptr = 0x204f54 as *mut u8;
 
     unsafe {
         *ptr = 42;
