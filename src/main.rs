@@ -40,21 +40,41 @@ entry_point!(kernel_main);
 
 /// Entry point for the freestanding kernel executable. It takes a BootInfo struct
 /// from the bootloader as an argument.
-fn kernel_main(_boot_info: &'static BootInfo) -> ! {
+fn kernel_main(boot_info: &'static BootInfo) -> ! {
+    use rust_os::memory::active_level_4_table;
+    use x86_64::{VirtAddr, structures::paging::PageTable};
+
     // Invokes the vga module's println! macro to write "Hello world!" to the VGA text buffer
     println!("Hello world!");
 
     // Initialise and load IDT with breakpoint exception handler
     rust_os::init();
 
-    use x86_64::registers::control::Cr3;
+    // The kernel maps the entirety of physical memory into virtual memory. The bootloader queries
+    // the firmware for the address at which this mapping begins, then passes it to the kernel, which
+    // then assigns it to this variable
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let l4_table = unsafe { active_level_4_table(phys_mem_offset) };
 
-    // Print physical address of the active level 4 page table. This is stored in the CR3 register
-    let (level_4_page_table, _) = Cr3::read();
-    println!(
-        "Level 4 page table at: {:?}",
-        level_4_page_table.start_address()
-    );
+    // Iterate over the entries in the active level 4 page table
+    for (i, entry) in l4_table.iter().enumerate() {
+        if !entry.is_unused() {
+            println!("L4 Entry {}: {:?}", i, entry);
+
+            // Get the physical address from the entry and use it to obtain the corresponding level 3 page table from virtual memory
+            let phys = entry.frame().unwrap().start_address();
+            let virt = phys.as_u64() + boot_info.physical_memory_offset;
+            let ptr = VirtAddr::new(virt).as_mut_ptr();
+            let l3_table: &PageTable = unsafe { &*ptr };
+
+            // Print non-empty entries of the level 3 page table
+            for (i, entry) in l3_table.iter().enumerate() {
+                if !entry.is_unused() {
+                    println!("  L3 Entry {}: {:?}", i, entry);
+                }
+            }
+        }
+    }
 
     // Run tests
     #[cfg(test)]
