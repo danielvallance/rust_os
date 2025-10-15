@@ -41,8 +41,8 @@ entry_point!(kernel_main);
 /// Entry point for the freestanding kernel executable. It takes a BootInfo struct
 /// from the bootloader as an argument.
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    use rust_os::memory::translate_addr;
-    use x86_64::VirtAddr;
+    use rust_os::memory;
+    use x86_64::{VirtAddr, structures::paging::Translate};
 
     // Invokes the vga module's println! macro to write "Hello world!" to the VGA text buffer
     println!("Hello world!");
@@ -54,6 +54,10 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // the firmware for the address at which this mapping begins, then passes it to the kernel, which
     // then assigns it to this variable
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+
+    // Initialise OffsetPageTable which implements the Mapper and Translate traits in
+    // contexts where the entirety of physical memory is mapped into virtual memory
+    let mapper = unsafe { memory::init(phys_mem_offset) };
 
     let addresses = [
         // the identity-mapped vga buffer page
@@ -69,7 +73,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // Print the mapping of the above virtual addresses to their physical addresses using the translate_addr function
     for &address in &addresses {
         let virt = VirtAddr::new(address);
-        let phys = unsafe { translate_addr(virt, phys_mem_offset) };
+        let phys = mapper.translate_addr(virt);
         println!("{:?} -> {:?}", virt, phys);
     }
 
