@@ -41,8 +41,8 @@ entry_point!(kernel_main);
 /// Entry point for the freestanding kernel executable. It takes a BootInfo struct
 /// from the bootloader as an argument.
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    use rust_os::memory::active_level_4_table;
-    use x86_64::{VirtAddr, structures::paging::PageTable};
+    use rust_os::memory::translate_addr;
+    use x86_64::VirtAddr;
 
     // Invokes the vga module's println! macro to write "Hello world!" to the VGA text buffer
     println!("Hello world!");
@@ -54,26 +54,23 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // the firmware for the address at which this mapping begins, then passes it to the kernel, which
     // then assigns it to this variable
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let l4_table = unsafe { active_level_4_table(phys_mem_offset) };
 
-    // Iterate over the entries in the active level 4 page table
-    for (i, entry) in l4_table.iter().enumerate() {
-        if !entry.is_unused() {
-            println!("L4 Entry {}: {:?}", i, entry);
+    let addresses = [
+        // the identity-mapped vga buffer page
+        0xb8000,
+        // some code page
+        0x201008,
+        // some stack page
+        0x0100_0020_1a10,
+        // virtual address mapped to physical address 0
+        boot_info.physical_memory_offset,
+    ];
 
-            // Get the physical address from the entry and use it to obtain the corresponding level 3 page table from virtual memory
-            let phys = entry.frame().unwrap().start_address();
-            let virt = phys.as_u64() + boot_info.physical_memory_offset;
-            let ptr = VirtAddr::new(virt).as_mut_ptr();
-            let l3_table: &PageTable = unsafe { &*ptr };
-
-            // Print non-empty entries of the level 3 page table
-            for (i, entry) in l3_table.iter().enumerate() {
-                if !entry.is_unused() {
-                    println!("  L3 Entry {}: {:?}", i, entry);
-                }
-            }
-        }
+    // Print the mapping of the above virtual addresses to their physical addresses using the translate_addr function
+    for &address in &addresses {
+        let virt = VirtAddr::new(address);
+        let phys = unsafe { translate_addr(virt, phys_mem_offset) };
+        println!("{:?} -> {:?}", virt, phys);
     }
 
     // Run tests
