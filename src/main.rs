@@ -17,7 +17,7 @@
 
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
-use rust_os::println;
+use rust_os::{memory::BootInfoFrameAllocator, println};
 use x86_64::structures::paging::Page;
 
 /// This is a custom panic handler, as we do not have access to the default
@@ -60,7 +60,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // contexts where the entirety of physical memory is mapped into virtual memory
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
 
-    let mut frame_allocator = memory::EmptyFrameAllocator;
+    // Use BootInfoFrameAllocator which actually allocates unused physical frames, preventing the frame
+    // allocation failure when the kernel tries to create page tables
+    let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map) };
 
     // map a page which does not already have the required page tables
     // (and so will need the frame allocator to allocate some frames for them)
