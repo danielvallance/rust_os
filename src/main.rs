@@ -62,8 +62,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     let mut frame_allocator = memory::EmptyFrameAllocator;
 
-    // map an unused page
-    let page = Page::containing_address(VirtAddr::new(0));
+    // map a page which does not already have the required page tables
+    // (and so will need the frame allocator to allocate some frames for them)
+    let page = Page::containing_address(VirtAddr::new(0xdeadbeaf0000));
     memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
 
     // write the string `New!` to the screen through the new mapping
