@@ -18,6 +18,7 @@
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 use rust_os::println;
+use x86_64::structures::paging::Page;
 
 /// This is a custom panic handler, as we do not have access to the default
 /// one in the standard library. This panic handler just loops forever.
@@ -42,7 +43,7 @@ entry_point!(kernel_main);
 /// from the bootloader as an argument.
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use rust_os::memory;
-    use x86_64::{VirtAddr, structures::paging::Translate};
+    use x86_64::VirtAddr;
 
     // Invokes the vga module's println! macro to write "Hello world!" to the VGA text buffer
     println!("Hello world!");
@@ -57,25 +58,17 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     // Initialise OffsetPageTable which implements the Mapper and Translate traits in
     // contexts where the entirety of physical memory is mapped into virtual memory
-    let mapper = unsafe { memory::init(phys_mem_offset) };
+    let mut mapper = unsafe { memory::init(phys_mem_offset) };
 
-    let addresses = [
-        // the identity-mapped vga buffer page
-        0xb8000,
-        // some code page
-        0x201008,
-        // some stack page
-        0x0100_0020_1a10,
-        // virtual address mapped to physical address 0
-        boot_info.physical_memory_offset,
-    ];
+    let mut frame_allocator = memory::EmptyFrameAllocator;
 
-    // Print the mapping of the above virtual addresses to their physical addresses using the translate_addr function
-    for &address in &addresses {
-        let virt = VirtAddr::new(address);
-        let phys = mapper.translate_addr(virt);
-        println!("{:?} -> {:?}", virt, phys);
-    }
+    // map an unused page
+    let page = Page::containing_address(VirtAddr::new(0));
+    memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
+
+    // write the string `New!` to the screen through the new mapping
+    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
+    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
 
     // Run tests
     #[cfg(test)]

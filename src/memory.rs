@@ -1,9 +1,22 @@
 //! This module contains functions which deal with paging and memory allocation
 
 use x86_64::{
-    VirtAddr,
-    structures::paging::{OffsetPageTable, PageTable},
+    PhysAddr, VirtAddr,
+    structures::paging::{
+        FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PhysFrame, Size4KiB,
+    },
 };
+
+use crate::vga::VGA_BUF_ADDR;
+
+/// A FrameAllocator that always returns `None`.
+pub struct EmptyFrameAllocator;
+
+unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame> {
+        None
+    }
+}
 
 /// Initialize a new OffsetPageTable.
 ///
@@ -38,4 +51,22 @@ unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut
     let page_table_ptr: *mut PageTable = virt.as_mut_ptr();
 
     unsafe { &mut *page_table_ptr }
+}
+
+/// Creates an example mapping for the given page to frame `0xb8000` (the VGA buffer address)
+pub fn create_example_mapping(
+    page: Page,
+    mapper: &mut OffsetPageTable,
+    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+) {
+    use x86_64::structures::paging::PageTableFlags as Flags;
+
+    let frame = PhysFrame::containing_address(PhysAddr::new(VGA_BUF_ADDR));
+    let flags = Flags::PRESENT | Flags::WRITABLE;
+
+    let map_to_result = unsafe {
+        // FIXME: this is not safe, we do it only for testing
+        mapper.map_to(page, frame, flags, frame_allocator)
+    };
+    map_to_result.expect("map_to failed").flush();
 }

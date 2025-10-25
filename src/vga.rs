@@ -14,7 +14,7 @@ const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
 
 // Memory map address of VGA text buffer
-const VGA_BUF_ADDR: usize = 0xb8000;
+pub const VGA_BUF_ADDR: u64 = 0xb8000;
 
 /// Colour for the foreground/background of VGA characters
 #[allow(dead_code)]
