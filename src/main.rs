@@ -21,7 +21,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
-use rust_os::{memory::BootInfoFrameAllocator, println};
+use rust_os::{allocator, memory::BootInfoFrameAllocator, println};
 use x86_64::structures::paging::Page;
 
 /// This is a custom panic handler, as we do not have access to the default
@@ -80,6 +80,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // Run tests
     #[cfg(test)]
     test_main();
+
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
 
     // Try to allocate some heap memory. This will fail as the Dummy allocator does not allocate any memory.
     let _x = Box::new(41);
