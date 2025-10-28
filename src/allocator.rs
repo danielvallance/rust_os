@@ -1,7 +1,6 @@
 //! This module provides a data type which implements the GlobalAlloc trait for use by the kernel
 
-use alloc::alloc::{GlobalAlloc, Layout};
-use core::ptr::null_mut;
+use linked_list_allocator::LockedHeap;
 use x86_64::{
     VirtAddr,
     structures::paging::{
@@ -15,26 +14,9 @@ pub const HEAP_START: usize = 0x_4444_4444_0000;
 /// Size of heap (100 KiB)
 pub const HEAP_SIZE: usize = 100 * 1024;
 
-/// This struct provides a bare minimum implementation of the GlobalAlloc trait
-pub struct Dummy;
-
 // This attribute tells the Rust compiler that ALLOCATOR should be used as the heap allocator
 #[global_allocator]
-static ALLOCATOR: Dummy = Dummy;
-
-unsafe impl GlobalAlloc for Dummy {
-    /// Dummy does not perform allocation, it simply returns a null pointer
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        null_mut()
-    }
-
-    /// Dummy panics on deallocation
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-        panic!(
-            "dealloc should never be called, as Dummy does not have a functional alloc implementation"
-        )
-    }
-}
+static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 /// Initialises heap by allocating frames of physical memory,
 /// and mapping pages in the heap region to them
@@ -58,6 +40,10 @@ pub fn init_heap(
             .ok_or(MapToError::FrameAllocationFailed)?;
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
         unsafe { mapper.map_to(page, frame, flags, frame_allocator)?.flush() };
+    }
+
+    unsafe {
+        ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
     }
 
     Ok(())

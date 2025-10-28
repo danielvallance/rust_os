@@ -17,6 +17,7 @@ uart_16550 = "0.2.0"
 volatile = "0.2.6"
 x86_64 = "0.14.2"
 lazy_static = { version = "1.0", features = ["spin_no_std"]}
+linked_list_allocator = "0.9.0"
 
 
 # In test mode, specify port address/size of isa-debug-exit device which allows kernel
