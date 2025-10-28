@@ -11,6 +11,10 @@
 // an unstable feature, so enable it here
 #![feature(abi_x86_interrupt)]
 
+// Link this crate with the alloc crate
+extern crate alloc;
+
+pub mod allocator;
 pub mod gdt;
 pub mod interrupts;
 pub mod memory;

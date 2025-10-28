@@ -15,6 +15,10 @@
 // Configure entry point for test run to be called test_main
 #![reexport_test_harness_main = "test_main"]
 
+// Link this crate with the alloc crate
+extern crate alloc;
+
+use alloc::boxed::Box;
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 use rust_os::{memory::BootInfoFrameAllocator, println};
@@ -76,6 +80,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // Run tests
     #[cfg(test)]
     test_main();
+
+    // Try to allocate some heap memory. This will fail as the Dummy allocator does not allocate any memory.
+    let _x = Box::new(41);
 
     rust_os::hlt_loop()
 }
