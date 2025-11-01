@@ -7,9 +7,10 @@ use x86_64::{
     },
 };
 
-use crate::allocator::linked_list::LinkedListAllocator;
+use crate::allocator::fixed_size_block::FixedSizeBlockAllocator;
 
 pub mod bump;
+pub mod fixed_size_block;
 pub mod linked_list;
 
 /// Starting address of heap region in virtual memory
@@ -20,7 +21,7 @@ pub const HEAP_SIZE: usize = 100 * 1024;
 
 // This attribute tells the Rust compiler that ALLOCATOR should be used as the heap allocator
 #[global_allocator]
-static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
+static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
 
 /// Initialises heap by allocating frames of physical memory,
 /// and mapping pages in the heap region to them
