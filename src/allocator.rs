@@ -7,9 +7,10 @@ use x86_64::{
     },
 };
 
-use crate::allocator::bump::{BumpAllocator, Locked};
+use crate::allocator::linked_list::LinkedListAllocator;
 
 pub mod bump;
+pub mod linked_list;
 
 /// Starting address of heap region in virtual memory
 pub const HEAP_START: usize = 0x_4444_4444_0000;
@@ -19,7 +20,7 @@ pub const HEAP_SIZE: usize = 100 * 1024;
 
 // This attribute tells the Rust compiler that ALLOCATOR should be used as the heap allocator
 #[global_allocator]
-static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
+static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 /// Initialises heap by allocating frames of physical memory,
 /// and mapping pages in the heap region to them
@@ -50,4 +51,28 @@ pub fn init_heap(
     }
 
     Ok(())
+}
+
+/// Align the given address `addr` upwards to alignment `align`.
+///
+/// Requires that `align` is a power of two.
+fn align_up(addr: usize, align: usize) -> usize {
+    (addr + align - 1) & !(align - 1)
+}
+
+/// A wrapper around spin::Mutex to permit trait implementations.
+pub struct Locked<A> {
+    inner: spin::Mutex<A>,
+}
+
+impl<A> Locked<A> {
+    pub const fn new(inner: A) -> Self {
+        Locked {
+            inner: spin::Mutex::new(inner),
+        }
+    }
+
+    pub fn lock(&self) -> spin::MutexGuard<'_, A> {
+        self.inner.lock()
+    }
 }

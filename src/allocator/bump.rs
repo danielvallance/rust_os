@@ -1,6 +1,7 @@
 //! This module provides a basic bump allocator which provides a chunk of memory at the "next" pointer on alloc,
 //! and can only free memory once there are no active allocations, at which point the whole heap is freed.
 
+use super::{Locked, align_up};
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::ptr;
 
@@ -39,23 +40,6 @@ impl Default for BumpAllocator {
     }
 }
 
-/// A wrapper around spin::Mutex to permit trait implementations.
-pub struct Locked<A> {
-    inner: spin::Mutex<A>,
-}
-
-impl<A> Locked<A> {
-    pub const fn new(inner: A) -> Self {
-        Locked {
-            inner: spin::Mutex::new(inner),
-        }
-    }
-
-    pub fn lock(&self) -> spin::MutexGuard<'_, A> {
-        self.inner.lock()
-    }
-}
-
 unsafe impl GlobalAlloc for Locked<BumpAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let mut bump = self.lock(); // get a mutable reference
@@ -83,11 +67,4 @@ unsafe impl GlobalAlloc for Locked<BumpAllocator> {
             bump.next = bump.heap_start;
         }
     }
-}
-
-/// Align the given address `addr` upwards to alignment `align`.
-///
-/// Requires that `align` is a power of two.
-fn align_up(addr: usize, align: usize) -> usize {
-    (addr + align - 1) & !(align - 1)
 }
