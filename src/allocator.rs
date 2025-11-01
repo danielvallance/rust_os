@@ -1,13 +1,12 @@
 //! This module provides a data type which implements the GlobalAlloc trait for use by the kernel
 
+use linked_list_allocator::LockedHeap;
 use x86_64::{
     VirtAddr,
     structures::paging::{
         FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB, mapper::MapToError,
     },
 };
-
-use crate::allocator::fixed_size_block::FixedSizeBlockAllocator;
 
 pub mod bump;
 pub mod fixed_size_block;
@@ -21,7 +20,7 @@ pub const HEAP_SIZE: usize = 100 * 1024;
 
 // This attribute tells the Rust compiler that ALLOCATOR should be used as the heap allocator
 #[global_allocator]
-static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
+static ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 /// Initialises heap by allocating frames of physical memory,
 /// and mapping pages in the heap region to them
