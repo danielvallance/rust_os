@@ -22,6 +22,8 @@ use alloc::vec;
 use alloc::{boxed::Box, rc::Rc, vec::Vec};
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
+use rust_os::task::Task;
+use rust_os::task::simple_executor::SimpleExecutor;
 use rust_os::{allocator, memory::BootInfoFrameAllocator, println};
 use x86_64::structures::paging::Page;
 
@@ -39,6 +41,17 @@ fn panic(info: &PanicInfo) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     rust_os::test_panic_handler(info);
+}
+
+/// Simple async function to demonstrate the cooperative multitasking Task API the kernel provides
+async fn async_number() -> u32 {
+    42
+}
+
+/// Invokes and awaits async_number and prints the result. Returns nothing, so is executed just for its side effects.
+async fn example_task() {
+    let number = async_number().await;
+    println!("async number: {}", number);
 }
 
 // Specifies kernel_main as the entry point for the freestanding executable
@@ -107,6 +120,11 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         "reference count is {} now",
         Rc::strong_count(&cloned_reference)
     );
+
+    // Create simple executor, and pass it the example_task function wrapped in a Task for it to execute
+    let mut executor = SimpleExecutor::new();
+    executor.spawn(Task::new(example_task()));
+    executor.run();
 
     rust_os::hlt_loop()
 }
