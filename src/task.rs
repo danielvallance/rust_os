@@ -8,6 +8,7 @@ use core::{
     task::{Context, Poll},
 };
 
+pub mod keyboard;
 pub mod simple_executor;
 
 /// A Task is a thin wrapper around a Future

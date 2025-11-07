@@ -4,7 +4,7 @@
 //! Currently the only exception which the IDT handles
 //! is the breakpoint exception.
 
-use crate::{gdt, hlt_loop, print, println};
+use crate::{gdt, hlt_loop, print, println, task::keyboard::add_scancode};
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use spin;
@@ -97,40 +97,15 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
     }
 }
 
-/// Keyboard interrupt handler which handles the user entering keys by printing them to the VGA buffer
+/// Keyboard interrupt handler which handles the user entering keys by adding the scancode to a queue
 extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    use pc_keyboard::{DecodedKey, HandleControl, Keyboard, ScancodeSet1, layouts};
-    use spin::Mutex;
     use x86_64::instructions::port::Port;
-
-    // Spinlock protected keyboard representation which is instantiated with
-    // scancode set 1, US layout, and its behaviour of handling 'ctrl' combinations
-    // like normal keys
-    lazy_static! {
-        static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
-            Mutex::new(Keyboard::new(
-                ScancodeSet1::new(),
-                layouts::Us104Key,
-                HandleControl::Ignore
-            ));
-    }
 
     // Read scancode which can be used to determine which key was pressed.
     // The PS2 keyboard controller will not send another interrupt until the scancode has been read.
-    let mut keyboard = KEYBOARD.lock();
     let mut port = Port::new(PS2_DATA_PORT_ADDR);
     let scancode: u8 = unsafe { port.read() };
-
-    // Convert scancode to an Option<KeyEvent> which represents the key in question, and if it was a key up or down event.
-    // Then convert the key into a character, and print it
-    if let Ok(Some(key_event)) = keyboard.add_byte(scancode)
-        && let Some(key) = keyboard.process_keyevent(key_event)
-    {
-        match key {
-            DecodedKey::Unicode(character) => print!("{}", character),
-            DecodedKey::RawKey(key) => print!("{:?}", key),
-        }
-    }
+    add_scancode(scancode);
 
     // Send EOI signal to notify PIC that the interrupt has been handled
     unsafe {

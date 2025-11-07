@@ -23,6 +23,7 @@ use alloc::{boxed::Box, rc::Rc, vec::Vec};
 use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 use rust_os::task::Task;
+use rust_os::task::keyboard::print_keypresses;
 use rust_os::task::simple_executor::SimpleExecutor;
 use rust_os::{allocator, memory::BootInfoFrameAllocator, println};
 use x86_64::structures::paging::Page;
@@ -121,9 +122,10 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         Rc::strong_count(&cloned_reference)
     );
 
-    // Create simple executor, and pass it the example_task function wrapped in a Task for it to execute
+    // Create simple executor, and pass it the example_task and print_keypresses functions wrapped in Tasks for it to execute
     let mut executor = SimpleExecutor::new();
     executor.spawn(Task::new(example_task()));
+    executor.spawn(Task::new(print_keypresses()));
     executor.run();
 
     rust_os::hlt_loop()
