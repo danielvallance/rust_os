@@ -5,14 +5,32 @@ use alloc::boxed::Box;
 use core::{
     future::Future,
     pin::Pin,
+    sync::atomic::{AtomicU64, Ordering},
     task::{Context, Poll},
 };
 
+pub mod executor;
 pub mod keyboard;
 pub mod simple_executor;
 
+/// Identifier for Task instances
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct TaskId(u64);
+
+impl TaskId {
+    fn new() -> Self {
+        // Initialise the NEXT_ID static variable as 0 only once
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+
+        // Atomically fetch and add NEXT_ID to get a guaranteed unique ID
+        TaskId(NEXT_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
 /// A Task is a thin wrapper around a Future
 pub struct Task {
+    id: TaskId,
+
     /// The Task has a reference to a Future which has no
     /// return value (it is just executed for its side effects)
     ///
@@ -29,6 +47,7 @@ impl Task {
     /// Creates a new Task by passing it an async function
     pub fn new(future: impl Future<Output = ()> + 'static) -> Task {
         Task {
+            id: TaskId::new(),
             future: Box::pin(future),
         }
     }
